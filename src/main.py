@@ -26,8 +26,18 @@ console = Console()
 @click.option('--trim-before',
              is_flag=True,
              help='Remove seconds before the keyword instead of after')
+@click.option('--end-keyword',
+             help='Keyword that marks the end of a segment')
+@click.option('--trim-end-keyword-remove-seconds',
+             type=float,
+             default=2.0,
+             help='Number of seconds to remove when trimming around end-keyword (default: 2.0)')
+@click.option('--trim-end-keyword-before',
+             is_flag=True,
+             help='Remove seconds before the end-keyword instead of after')
 def main(keyword: str, model: str, language: str, 
-         trim_remove_seconds: float, trim_before: bool):
+         trim_remove_seconds: float, trim_before: bool, end_keyword: str,
+         trim_end_keyword_remove_seconds: float, trim_end_keyword_before: bool):
     """Split audio files based on keyword occurrences."""
     try:
         # Initialize components
@@ -56,9 +66,21 @@ def main(keyword: str, model: str, language: str,
                 transcription.words, keyword
             )
             
+            # Find end-keyword occurrences if specified
+            end_keyword_occurrences = None
+            if end_keyword:
+                end_keyword_occurrences = processor.find_keyword_occurrences(
+                    transcription.words, end_keyword
+                )
+                if end_keyword_occurrences:
+                    print(f"Found {len(end_keyword_occurrences)} occurrences of end-keyword '{end_keyword}'")
+            
             # Process audio and save splits
             result = processor.process_audio(
-                audio_file, keyword, keyword_occurrences
+                audio_file, keyword, keyword_occurrences,
+                end_keyword_occurrences=end_keyword_occurrences,
+                trim_end_keyword_seconds=trim_end_keyword_remove_seconds,
+                trim_end_keyword_before=trim_end_keyword_before
             )
             
             # Save metadata
@@ -68,7 +90,8 @@ def main(keyword: str, model: str, language: str,
                 result,
                 transcription.text,
                 transcription.language,
-                keyword
+                keyword,
+                end_keyword=end_keyword
             )
         
         print("\n[green]Processing complete![/green]")

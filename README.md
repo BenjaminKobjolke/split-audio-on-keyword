@@ -15,9 +15,13 @@ A Python tool that uses OpenAI's Whisper to transcribe audio files and split the
 1. Run `install.bat` to create a virtual environment and install all requirements
 2. Use `activate_environment.bat` to activate the virtual environment when you want to use the tool
 
+Note: The main script (`split_on_keyword.py`) is now a command forwarder that uses the modular implementation in the `src/` directory.
+
 ## Manual Setup
 
 If you prefer to set up manually or are using Linux/Mac:
+
+Note: The implementation is in the `src/` directory. The root `split_on_keyword.py` forwards all commands to `src/main.py`.
 
 1. Create Python virtual environment:
 
@@ -60,11 +64,23 @@ On first run, you'll be prompted to enter a keyword. This will be saved to `sett
   - If not specified, Whisper will auto-detect the language
   - Specifying the correct language can improve accuracy
 - `--trim-remove-seconds`: Number of seconds to remove when trimming (default: 2.0)
-  - Controls how many seconds to remove around the keyword
+  - Controls how many seconds to remove around the main keyword
   - Can be a decimal number (e.g., 1.5)
-- `--trim-before`: Remove seconds before the keyword instead of after
+- `--trim-before`: Remove seconds before the main keyword instead of after
   - By default, seconds are removed after the keyword
   - With this flag, seconds are removed before the keyword
+- `--end-keyword`: Keyword that marks the end of a segment
+  - Case-insensitive and ignores punctuation like the main keyword
+  - Splits will end at this keyword when found
+- `--trim-end-keyword-remove-seconds`: Number of seconds to remove when trimming around end-keyword (default: 2.0)
+  - Controls how many seconds to remove around the end-keyword
+  - Can be a decimal number (e.g., 1.5)
+- `--trim-end-keyword-before`: Remove seconds before the end-keyword instead of after (default: false)
+  - By default (when flag is not used), seconds are removed after the end-keyword
+  - When flag is used, seconds are removed before the end-keyword
+  - Example: With --trim-end-keyword-remove-seconds 2.0:
+    - Default (no flag): Trims 2 seconds after the end-keyword
+    - With flag: Trims 2 seconds before the end-keyword
 
 Examples:
 
@@ -84,8 +100,11 @@ python split_on_keyword.py --trim-remove-seconds 3.5
 # Remove seconds before the keyword instead of after
 python split_on_keyword.py --trim-before
 
+# Use end-keyword with custom trimming
+python split_on_keyword.py --keyword "entschuldigung" --end-keyword "Überraschung" --trim-end-keyword-remove-seconds 1.5 --trim-end-keyword-before
+
 # Combine all options
-python split_on_keyword.py --keyword "schnitzel" --model medium --language de --trim-remove-seconds 1.5 --trim-before
+python split_on_keyword.py --keyword "schnitzel" --model medium --language de --trim-remove-seconds 1.5 --trim-before --end-keyword "danke" --trim-end-keyword-remove-seconds 1.0
 ```
 
 Common Language Codes:
