@@ -93,7 +93,14 @@ def process_audio_file(input_file, keyword, model_name, language=None, trim_seco
             }
             all_words.append(word_info)
             
-            if keyword.lower() in word["word"].lower():
+            # Clean and normalize text for comparison
+            word_text = ''.join(c for c in word["word"].lower() if c.isalnum())
+            search_keyword = ''.join(c for c in keyword.lower() if c.isalnum())
+            
+            # Debug print to help diagnose matches
+            print(f"Comparing - Word: '{word['word']}' -> '{word_text}', Keyword: '{keyword}' -> '{search_keyword}'")
+            
+            if search_keyword in word_text:  # Use substring match after cleaning
                 timestamps.append(word["start"])
                 keyword_occurrences.append(word_info)
     

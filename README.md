@@ -5,7 +5,7 @@ A Python tool that uses OpenAI's Whisper to transcribe audio files and split the
 ## Features
 
 - Transcribes audio files using OpenAI's Whisper model
-- Splits audio files at occurrences of a specified keyword
+- Splits audio files at occurrences of a specified keyword (case-insensitive, ignores punctuation)
 - Supports MP3 and OGG formats
 - Saves keyword preference in settings.ini
 - Removes 2 seconds from the beginning of each part after the keyword for cleaner splits
@@ -50,7 +50,8 @@ On first run, you'll be prompted to enter a keyword. This will be saved to `sett
 
 ### Command Line Arguments
 
-- `--keyword`: Override the saved keyword
+- `--keyword`: Override the saved keyword (case-insensitive matching, ignores punctuation)
+  - Example: "hello" will match "Hello!", "HELLO.", etc.
 - `--model`: Choose Whisper model (default: base)
   - Available models: tiny, base, small, medium, large
   - Larger models are more accurate but slower and require more memory
