@@ -61,9 +61,13 @@ def main(keyword: str, model: str, language: str,
         
         # CLI options override config
         if input_dir:
+            # Clean any trailing quotes from paths
+            input_dir = Path(str(input_dir).strip('"'))
             config.save_directories(str(input_dir), str(config_output_dir))
             config_input_dir = input_dir
         if output_dir:
+            # Clean any trailing quotes from paths
+            output_dir = Path(str(output_dir).strip('"'))
             config.save_directories(str(config_input_dir), str(output_dir))
             config_output_dir = output_dir
             
@@ -97,6 +101,7 @@ def main(keyword: str, model: str, language: str,
             # Process audio and save splits
             result = processor.process_audio(
                 audio_file, keywords, keyword_occurrences,
+                output_base_dir=output_dir,
                 end_keyword_occurrences=end_keyword_occurrences,
                 trim_end_keyword_seconds=trim_end_keyword_remove_seconds,
                 trim_end_keyword_before=trim_end_keyword_before

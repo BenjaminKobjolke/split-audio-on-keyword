@@ -2,13 +2,10 @@ from pathlib import Path
 from typing import List, Tuple
 from rich import print
 
-def ensure_directories() -> Tuple[Path, Path]:
+def ensure_directories(input_dir: Path, output_dir: Path) -> Tuple[Path, Path]:
     """Ensure input and output directories exist."""
-    input_dir = Path('input')
-    output_dir = Path('output')
-    
-    input_dir.mkdir(exist_ok=True)
-    output_dir.mkdir(exist_ok=True)
+    input_dir.mkdir(exist_ok=True, parents=True)
+    output_dir.mkdir(exist_ok=True, parents=True)
     
     return input_dir, output_dir
 

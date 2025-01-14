@@ -50,12 +50,13 @@ class AudioProcessor:
         return keyword_occurrences
     
     def process_audio(self, input_file: Path, keywords: List[str], keyword_occurrences: List[dict],
+                     output_base_dir: Path,
                      end_keyword_occurrences: Optional[List[dict]] = None,
                      trim_end_keyword_seconds: float = 2.0,
                      trim_end_keyword_before: bool = False) -> ProcessingResult:
         """Process audio file, splitting it at keyword occurrences."""
-        # Create output directory
-        output_dir = Path('output') / input_file.stem
+        # Create output directory for this file's results
+        output_dir = output_base_dir / input_file.stem
         output_dir.mkdir(parents=True, exist_ok=True)
         
         # Load audio file
@@ -130,10 +131,17 @@ class AudioProcessor:
         else:
             print(f"No keyword occurrences found in {input_file}")
         
-        # Move original file to output directory
+        # Copy original file to output directory
         new_input_location = output_dir / input_file.name
-        input_file.rename(new_input_location)
-        print(f"Moved original file to {output_dir}")
+        try:
+            # Try to move the file first
+            input_file.rename(new_input_location)
+            print(f"Moved original file to {output_dir}")
+        except OSError:
+            # If moving fails (e.g., across drives), copy instead
+            import shutil
+            shutil.copy2(input_file, new_input_location)
+            print(f"Copied original file to {output_dir}")
         
         # Update keyword occurrences with trimmed timestamps
         trimmed_occurrences = []
