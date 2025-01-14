@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Optional
 import click
 from rich import print
 from rich.console import Console
@@ -12,7 +13,7 @@ from utils import ensure_directories, get_audio_files
 console = Console()
 
 @click.command()
-@click.option('--keyword', help='Keyword to split on (overrides settings.ini)')
+@click.option('--keyword', help='Keyword(s) to split on (comma-separated, overrides settings.ini)')
 @click.option('--model', 
              type=click.Choice(['tiny', 'base', 'small', 'medium', 'large']),
              default='base',
@@ -27,7 +28,7 @@ console = Console()
              is_flag=True,
              help='Remove seconds before the keyword instead of after')
 @click.option('--end-keyword',
-             help='Keyword that marks the end of a segment')
+             help='Keyword(s) that mark the end of a segment (comma-separated)')
 @click.option('--trim-end-keyword-remove-seconds',
              type=float,
              default=2.0,
@@ -35,21 +36,38 @@ console = Console()
 @click.option('--trim-end-keyword-before',
              is_flag=True,
              help='Remove seconds before the end-keyword instead of after')
+@click.option('--input-dir',
+             type=click.Path(exists=True, file_okay=False, dir_okay=True, path_type=Path),
+             help='Input directory (overrides settings.ini)')
+@click.option('--output-dir',
+             type=click.Path(file_okay=False, dir_okay=True, path_type=Path),
+             help='Output directory (overrides settings.ini)')
 def main(keyword: str, model: str, language: str, 
          trim_remove_seconds: float, trim_before: bool, end_keyword: str,
-         trim_end_keyword_remove_seconds: float, trim_end_keyword_before: bool):
+         trim_end_keyword_remove_seconds: float, trim_end_keyword_before: bool,
+         input_dir: Optional[Path], output_dir: Optional[Path]):
     """Split audio files based on keyword occurrences."""
     try:
         # Initialize components
         config = Config()
-        keyword = config.get_keyword(keyword)
-        print(f"Using keyword: {keyword}")
+        keywords = config.get_keywords(keyword)
+        print(f"Using keywords: {', '.join(keywords)}")
         
         transcriber = TranscriptionManager(model_name=model, language=language)
         processor = AudioProcessor(trim_seconds=trim_remove_seconds, trim_before=trim_before)
         
-        # Ensure directories exist and get audio files
-        input_dir, _ = ensure_directories()
+        # Get configured directories and ensure they exist
+        config_input_dir, config_output_dir = config.get_directories()
+        
+        # CLI options override config
+        if input_dir:
+            config.save_directories(str(input_dir), str(config_output_dir))
+            config_input_dir = input_dir
+        if output_dir:
+            config.save_directories(str(config_input_dir), str(output_dir))
+            config_output_dir = output_dir
+            
+        input_dir, output_dir = ensure_directories(config_input_dir, config_output_dir)
         audio_files = get_audio_files(input_dir)
         
         if not audio_files:
@@ -63,21 +81,22 @@ def main(keyword: str, model: str, language: str,
             
             # Find keyword occurrences
             keyword_occurrences = processor.find_keyword_occurrences(
-                transcription.words, keyword
+                transcription.words, keywords
             )
             
-            # Find end-keyword occurrences if specified
+            # Find end-keywords occurrences if specified
             end_keyword_occurrences = None
             if end_keyword:
+                end_keywords = [k.strip() for k in end_keyword.split(',')]
                 end_keyword_occurrences = processor.find_keyword_occurrences(
-                    transcription.words, end_keyword
+                    transcription.words, end_keywords
                 )
                 if end_keyword_occurrences:
-                    print(f"Found {len(end_keyword_occurrences)} occurrences of end-keyword '{end_keyword}'")
+                    print(f"Found {len(end_keyword_occurrences)} end-keyword occurrences")
             
             # Process audio and save splits
             result = processor.process_audio(
-                audio_file, keyword, keyword_occurrences,
+                audio_file, keywords, keyword_occurrences,
                 end_keyword_occurrences=end_keyword_occurrences,
                 trim_end_keyword_seconds=trim_end_keyword_remove_seconds,
                 trim_end_keyword_before=trim_end_keyword_before
@@ -90,8 +109,8 @@ def main(keyword: str, model: str, language: str,
                 result,
                 transcription.text,
                 transcription.language,
-                keyword,
-                end_keyword=end_keyword
+                keywords,
+                end_keywords=end_keywords if end_keyword else None
             )
         
         print("\n[green]Processing complete![/green]")

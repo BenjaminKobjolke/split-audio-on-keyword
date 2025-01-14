@@ -25,24 +25,31 @@ class AudioProcessor:
         self.trim_seconds = trim_seconds
         self.trim_before = trim_before
     
-    def find_keyword_occurrences(self, words: List[dict], keyword: str) -> List[dict]:
-        """Find all occurrences of the keyword in the transcription."""
+    def find_keyword_occurrences(self, words: List[dict], keywords: List[str]) -> List[dict]:
+        """Find all occurrences of any keyword in the transcription."""
         keyword_occurrences = []
         
         for word in words:
             # Clean and normalize text for comparison
             word_text = clean_text(word["word"])
-            search_keyword = clean_text(keyword)
             
-            # Debug print to help diagnose matches
-            print(f"Comparing - Word: '{word['word']}' -> '{word_text}', Keyword: '{keyword}' -> '{search_keyword}'")
-            
-            if search_keyword in word_text:
-                keyword_occurrences.append(word)
+            # Check each keyword
+            for keyword in keywords:
+                search_keyword = clean_text(keyword)
+                
+                # Debug print to help diagnose matches
+                print(f"Comparing - Word: '{word['word']}' -> '{word_text}', Keyword: '{keyword}' -> '{search_keyword}'")
+                
+                if search_keyword in word_text:
+                    # Add the matched keyword to the word info
+                    word_with_keyword = word.copy()
+                    word_with_keyword["matched_keyword"] = keyword
+                    keyword_occurrences.append(word_with_keyword)
+                    break  # Stop checking other keywords once we find a match
         
         return keyword_occurrences
     
-    def process_audio(self, input_file: Path, keyword: str, keyword_occurrences: List[dict],
+    def process_audio(self, input_file: Path, keywords: List[str], keyword_occurrences: List[dict],
                      end_keyword_occurrences: Optional[List[dict]] = None,
                      trim_end_keyword_seconds: float = 2.0,
                      trim_end_keyword_before: bool = False) -> ProcessingResult:
@@ -58,7 +65,9 @@ class AudioProcessor:
         
         splits_info = []
         if keyword_occurrences:
-            print(f"Found {len(keyword_occurrences)} occurrences of '{keyword}'")
+            print(f"Found {len(keyword_occurrences)} keyword occurrences")
+            for occ in keyword_occurrences:
+                print(f"- '{occ['matched_keyword']}' at {format_time(occ['start'])}")
             
             # Get timestamps for main keyword
             timestamps = [word["start"] for word in keyword_occurrences]
@@ -119,7 +128,7 @@ class AudioProcessor:
                 ))
             
         else:
-            print(f"No occurrences of '{keyword}' found in {input_file}")
+            print(f"No keyword occurrences found in {input_file}")
         
         # Move original file to output directory
         new_input_location = output_dir / input_file.name
@@ -147,17 +156,17 @@ class AudioProcessor:
         )
     
     def save_metadata(self, output_dir: Path, base_name: str, result: ProcessingResult,
-                     transcription_text: str, language: str, keyword: str,
-                     end_keyword: Optional[str] = None) -> None:
+                     transcription_text: str, language: str, keywords: List[str],
+                     end_keywords: Optional[List[str]] = None) -> None:
         """Save transcription and metadata to JSON and TXT files."""
         # Save JSON metadata
         json_data = {
             "full_text": transcription_text,
             "language": language,
-            "keyword": keyword,
+            "keywords": keywords,
             "keyword_occurrences": result.keyword_occurrences,
             "splits": [vars(split) for split in result.splits],
-            "end_keyword": end_keyword
+            "end_keywords": end_keywords
         }
         
         json_file = output_dir / f"{base_name}_transcription.json"
@@ -169,12 +178,12 @@ class AudioProcessor:
         txt_file = output_dir / f"{base_name}_transcription.txt"
         with open(txt_file, 'w', encoding='utf-8') as f:
             f.write(f"Full Transcription:\n{transcription_text}\n\n")
-            f.write(f"Main Keyword: {keyword}\n")
-            if end_keyword:
-                f.write(f"End Keyword: {end_keyword}\n")
+            f.write(f"Main Keywords: {', '.join(keywords)}\n")
+            if end_keywords:
+                f.write(f"End Keywords: {', '.join(end_keywords)}\n")
             f.write(f"Found {len(result.keyword_occurrences)} occurrences at:\n")
             for occ in result.keyword_occurrences:
-                f.write(f"- {occ['word']} at {format_time(occ['start'])}\n")
+                f.write(f"- '{occ['matched_keyword']}' ({occ['word']}) at {format_time(occ['start'])}\n")
             f.write("\nSplit Information:\n")
             for split in result.splits:
                 f.write(f"- {split.file}: {format_time(split.start_time)} to {format_time(split.end_time)} "
